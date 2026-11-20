@@ -1,0 +1,37 @@
+# ПРОБА B (09.10): расширенная LoRA — r=128, α=128, LoRA и на MLP (gate/up/down) и на проекциях между LM и DiT.
+# ≈ 210 млн обучаемых параметров (~9 % модели) против ~1,6 % у v2 (r=64, только внимание). Вопрос пробы: упирается ли v2 в ёмкость LoRA.
+# 2 000 шагов × эфф. батч 16 ≈ 32 тыс. фраз ≈ 0,65 эпохи mix-v3b; lr 1e-4 (как v2), warmup 200; чекпоинт и val раз в 1 000 шагов.
+# Код тренера не меняется: LoRAConfig читается из этого YAML (target_modules_lm/dit, enable_proj). Чекпоинт ≈ 0,85 ГБ — на постоянный диск.
+pretrained_path: VOICE_HOME/weights/VoxCPM2/
+train_manifest: VOICE_HOME/MIX/train.jsonl
+val_manifest: VOICE_HOME/MIX/val.jsonl
+sample_rate: 16000
+out_sample_rate: 48000
+batch_size: 8
+grad_accum_steps: 2
+num_workers: 12
+preprocessing_num_workers: 12
+num_iters: STEPS
+max_steps: STEPS
+log_interval: 20
+valid_interval: 1000
+save_interval: 1000
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 200
+max_batch_tokens: 16384
+max_grad_norm: 1.0
+save_path: RUNDIR
+tensorboard: RUNDIR/tb
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+lora:
+  enable_lm: true
+  enable_dit: true
+  enable_proj: true
+  r: 128
+  alpha: 128
+  dropout: 0.0
+  target_modules_lm: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  target_modules_dit: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]

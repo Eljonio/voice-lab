@@ -1,0 +1,12 @@
+{
+ "_comment": "Голоса сервиса tts_server.py. Эталоны (wav + текст) в репозиторий не входят — положите свои в TTS_VOICES_DIR (по умолчанию $TTS_HOME/voices). text = null — эталон подаётся только как reference_wav_path (тембр), без продолжения. Эталоны d20_kk / d22_kk — синтетические голоса из Voice Design, переозвученные дообученной моделью на казахский.",
+ "default": "aruzhan_f",
+ "voices": {
+  "aruzhan_f": {"wav": "aruzhan_f_kk.wav", "text": "aruzhan_f_kk.txt", "gender": "f",
+                "label": "Аружан, женский — казахский эталон d20_kk (бутстреп v3-6067), 12,5 с"},
+  "male_m": {"wav": "male_m_kk.wav", "text": "male_m_kk.txt", "gender": "m",
+             "label": "мужской — казахский эталон d22_kk (бутстреп v3-6067), 9,8 с"},
+  "aruzhan_f_ru": {"wav": "aruzhan_f_ru.wav", "text": null, "gender": "f",
+                   "label": "Аружан, женский — исходный эталон d20 (русская фраза Voice Design v2-1008), 5,0 с; только тембр"}
+ }
+}

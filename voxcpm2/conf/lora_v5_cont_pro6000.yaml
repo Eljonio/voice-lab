@@ -1,0 +1,36 @@
+# v5 (11.10 вечер): продолжение v4 step_0003580 — та же LoRA (r=128, α=128; внимание + MLP + проекции LM↔DiT), в RUNDIR/latest/ только веса.
+# Отличия от v4: батч 4×4 сразу (v4 на 8×2 упала по памяти и потеряла 20 мин), lr 1e-4 (как у v3; v4 на 5e-5 на слух не сдвинулась),
+# смесь mix-v5 — меньше дикторского чтения (≈ 8–9 %), вопросы ×3, + новые ролики 11.10 «полной речью».
+pretrained_path: VOICE_HOME/weights/VoxCPM2/
+train_manifest: VOICE_HOME/MIX/train.jsonl
+val_manifest: VOICE_HOME/MIX/val.jsonl
+sample_rate: 16000
+out_sample_rate: 48000
+batch_size: 4
+grad_accum_steps: 4
+num_workers: 12
+preprocessing_num_workers: 12
+num_iters: STEPS
+max_steps: STEPS
+log_interval: 20
+valid_interval: 1000
+save_interval: 1000
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 200
+max_batch_tokens: 16384
+max_grad_norm: 1.0
+save_path: RUNDIR
+tensorboard: RUNDIR/tb
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+lora:
+  enable_lm: true
+  enable_dit: true
+  enable_proj: true
+  r: 128
+  alpha: 128
+  dropout: 0.0
+  target_modules_lm: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  target_modules_dit: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]

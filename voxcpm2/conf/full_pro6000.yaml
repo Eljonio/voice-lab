@@ -1,0 +1,31 @@
+# VoxCPM2 ПОЛНОЕ дообучение (SFT) — v2: казахская живая речь ~200 ч + корпуса, RTX PRO 6000 96 ГБ (полное ≈ 40 ГБ VRAM).
+# По официальному conf/voxcpm_v2/voxcpm_finetune_all.yaml (OpenBMB, коммит f0c787f0): lr 1e-5, эфф. батч 16, sample_rate 16000.
+# Отличия: warmup 500 (на ~15 тыс. шагов, а не 1 000), чекпоинт каждые 2 500 шагов, батч 8 × 2 (как v1 на этой карте).
+# ⚠ ЧЕРНОВИК 08.10: чекпоинт полного = model.safetensors (2B) + optimizer.pth (AdamW, ~16 ГБ) + копия в latest/ — постоянный диск
+#   (150 ГБ, занято ~63) не вместит 6 штук. До запуска: чистка optimizer.pth в step_* (кроме latest) или диск 300 ГБ; synth_eval для полных весов.
+# num_iters/max_steps подставляет remote_job.sh: steps = EPOCHS × строк / 16 (v2: EPOCHS=2 → ~15–17 тыс. шагов, оценка).
+# НЕ поднимать lr при большем батче; НЕ трогать sample_rate (энкодер AudioVAE 16 кГц; 48000 = мусор).
+pretrained_path: VOICE_HOME/weights/VoxCPM2/
+train_manifest: VOICE_HOME/MIX/train.jsonl
+val_manifest: VOICE_HOME/MIX/val.jsonl
+sample_rate: 16000
+out_sample_rate: 48000
+batch_size: 8
+grad_accum_steps: 2
+num_workers: 12
+preprocessing_num_workers: 12
+num_iters: STEPS
+max_steps: STEPS
+log_interval: 50
+valid_interval: 1000
+save_interval: 2500
+learning_rate: 0.00001
+weight_decay: 0.01
+warmup_steps: 500
+max_batch_tokens: 16384
+max_grad_norm: 1.0
+save_path: VOICE_HOME/runs/RUN
+tensorboard: VOICE_HOME/runs/RUN/tb
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0

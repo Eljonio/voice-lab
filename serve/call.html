@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Звонок Аружан · лаборатория</title>
+<style>
+:root{--bg:#f6f8fb;--card:#fff;--fg:#1e293b;--mut:#5b6b85;--line:#e3e8f0;--acc:#3b82f6;--ok:#12805c;--bad:#c2332b;--warn:#a86400}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1422;--card:#141d2f;--fg:#e8eef8;--mut:#9fb0c8;--line:#26324a;--acc:#4d8fff;--ok:#3cc28f;--bad:#ff6b61;--warn:#e0a640}}
+:root[data-theme="dark"]{--bg:#0d1422;--card:#141d2f;--fg:#e8eef8;--mut:#9fb0c8;--line:#26324a;--acc:#4d8fff;--ok:#3cc28f;--bad:#ff6b61;--warn:#e0a640}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:4px}
+select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 8px;min-width:0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button{font:inherit;border:0;border-radius:8px;padding:12px 18px;cursor:pointer;background:var(--line);color:var(--fg)}
+button.main{background:var(--acc);color:#fff;font-weight:600}
+button.stop{background:var(--bad);color:#fff}
+button:disabled{opacity:.45;cursor:default}
+#ptt{display:none;width:100%;padding:28px;font-size:18px;user-select:none;-webkit-user-select:none;touch-action:none}
+#ptt.on{background:var(--ok);color:#fff}
+#status{font-size:17px;font-weight:600;min-height:26px}
+#meter{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:8px}
+#meter i{display:block;height:100%;width:0;background:var(--acc);transition:width .05s}
+.mut{color:var(--mut);font-size:12px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:top;white-space:nowrap}
+td.t{white-space:normal;min-width:160px;max-width:280px}
+th{color:var(--mut);font-weight:500;font-size:12px}
+.good{color:var(--ok);font-weight:600}.badv{color:var(--bad);font-weight:600}.mid{color:var(--warn);font-weight:600}
+#sum{font-size:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>Тест звонка · Аружан <span class="mut" id="srv"></span></h1>
+
+<div class="card">
+  <div class="grid">
+    <label>Токен звонка<input id="token" type="password" autocomplete="off" placeholder="из ссылки #k=… или вставить"></label>
+    <label>Голос<select id="voice"><option value="aruzhan_f">Аружан (жен.)</option><option value="male_m">мужской</option></select></label>
+    <label>Шаги диффузии<select id="steps"><option selected>10</option><option>8</option><option>6</option><option>4</option></select></label>
+    <label>cfg<select id="cfg"><option>2.0</option><option>1.5</option></select></label>
+    <label>Мозг<select id="brain"><option value="bot">внешний бот (HTTP)</option><option value="llm">LLM (OpenAI-совместимый API)</option><option value="script">правила (0 мс)</option><option value="echo">эхо</option></select></label>
+    <label>Голос для русского<select id="voice_ru"><option value="aruzhan_f">v5 + казахский эталон</option><option value="aruzhan_f_ru">v5 + русский эталон d20</option><option value="base:aruzhan_f_ru">база VoxCPM2 + русский эталон</option></select></label>
+    <label>+ задержка мозга, мс<select id="bdelay"><option>0</option><option>300</option><option>600</option><option>1000</option></select></label>
+    <label>Язык начала<select id="lang"><option value="kk">қазақша</option><option value="ru">русский</option></select></label>
+    <label>Режим<select id="mode"><option value="vad">сам слышит конец фразы</option><option value="ptt">кнопка «держи и говори»</option></select></label>
+    <label>Прогрев приветствия<select id="warm"><option value="1">да — бот готовит при открытии</option><option value="0">нет — гудки, как раньше</option></select></label>
+    <label>Пауза конца фразы, мс<select id="hang"><option>400</option><option>500</option><option selected>700</option><option>900</option><option>1200</option></select></label>
+    <label>Запас буфера, мс<select id="prebuf"><option>0</option><option>100</option><option selected>200</option><option>300</option><option>500</option></select></label>
+  </div>
+  <p class="mut">Мозг «внешний бот» — HTTP-сервис диалога (BOT_TURN_URL на сервере). Гость лабораторных звонков задаётся при запуске сервера (CALL_LAB_GUEST_PHONE), не здесь: номер — только из выдачи оператора. Шаги и cfg можно менять между репликами — сразу слышно разницу. «Пауза конца фразы» — сколько тишины ждать, прежде чем считать, что вы договорили: она прямо входит в задержку. Говорите в наушниках или негромко с динамика: пока говорит Аружан, микрофон не слушает (без перебивания).</p>
+</div>
+
+<div class="card">
+  <div class="row">
+    <button id="call" class="main">Позвонить</button>
+    <button id="hangup" class="stop" disabled>Положить трубку</button>
+    <span id="status">—</span>
+  </div>
+  <div id="meter"><i></i></div>
+  <p id="dev" class="mut"></p>
+  <button id="ptt">Удерживайте и говорите</button>
+</div>
+
+<div class="card">
+  <b>Ссылка для клиента</b> <span class="mut">— выпускает оператор:
+  <code>python3 guestlink.py make --secret-file guest_secret --base https://&lt;адрес&gt; --name "Имя" --phone "7XXXXXXXXXX" [--hours 72] [--lang kk|ru]</code>. Со страницы не выпускается: держатель этой ссылки не должен мочь назвать чужой номер. Линия одна: пока говорит клиент, мы ждём.</span>
+</div>
+
+<div class="card">
+  <b>Замечания</b> <span class="mut">— пиши как есть; к замечанию сама прикрепится последняя реплика (что ты сказал и что ответила Аружан). Сохраняется на сервере.</span>
+  <textarea id="note" rows="3" style="width:100%;box-sizing:border-box;margin:8px 0;font:inherit"></textarea>
+  <div class="row"><button id="noteSend">Отправить замечание</button> <span id="noteSt" class="mut"></span></div>
+  <ol id="notes" class="mut"></ol>
+</div>
+<div class="card">
+  <div id="sum" class="mut">Реплик пока нет.</div>
+  <div class="tw"><table id="log"><thead><tr>
+    <th>#</th><th>вы сказали</th><th>Аружан</th><th>тишина → звук</th><th>ждём конец</th><th>сеть</th><th>ASR</th><th>мозг</th><th>голос до 1-го звука</th><th>буфер+вывод</th><th>RTF</th><th>провалы</th><th>шаги</th>
+  </tr></thead><tbody></tbody></table></div>
+  <p class="mut">«тишина → звук» — от конца вашей речи до первого звука Аружан. Из чего: ждём конец (пауза конца фразы) + сеть (загрузка вашей фразы и ответ) + ASR + мозг + голос до первого звука + буфер и вывод звука в устройстве. Цель — ≤ 1000 мс.</p>
+  <div class="row"><button id="dl">Скачать лог (JSON)</button><button id="done">Завершить сеанс — сервер выключится</button></div>
+</div>
+</main>
+<script>
+(() => {
+"use strict";
+const $ = s => document.querySelector(s);
+const SR = 16000, FRAME = 320;
+const st = { ctx: null, mic: null, node: null, state: "idle", callId: "", turns: [], abort: null, player: null };
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* приватный режим */ } }
+};
+if (location.hash.startsWith("#k=")) {
+  store.set("vl_call_token", decodeURIComponent(location.hash.slice(3)));
+  $("#token").value = decodeURIComponent(location.hash.slice(3));
+  history.replaceState(null, "", location.pathname);
+} else { $("#token").value = store.get("vl_call_token") || ""; }
+for (const id of ["voice", "voice_ru", "steps", "cfg", "bdelay", "lang", "mode", "hang", "prebuf", "warm"]) {   // мозг не запоминаем — по умолчанию мозг сервера
+  const v = store.get("vl_call_" + id); if (v !== null && [...$("#" + id).options].some(o => o.value === v)) $("#" + id).value = v;
+  $("#" + id).addEventListener("change", () => { store.set("vl_call_" + id, $("#" + id).value); if (id === "mode") ui(); });
+}
+$("#token").addEventListener("change", () => store.set("vl_call_token", $("#token").value.trim()));
+const setStatus = (t, cls) => { $("#status").textContent = t; $("#status").className = cls || ""; };
+function ui() {
+  const on = st.state !== "idle";
+  $("#call").disabled = on; $("#hangup").disabled = !on;
+  $("#ptt").style.display = on && $("#mode").value === "ptt" ? "block" : "none";
+}
+
+// ---------------------------------------------------------------- захват: 16 кГц, кадры 20 мс
+class Down {               // понижение частоты: среднее по окну (простой ФНЧ) + дробный шаг
+  constructor(src) { this.r = src / SR; this.pos = 0; this.buf = new Float32Array(0); }
+  push(x) {
+    const b = new Float32Array(this.buf.length + x.length); b.set(this.buf); b.set(x, this.buf.length);
+    const out = []; const w = Math.max(1, Math.round(this.r));
+    while (this.pos + w < b.length) {
+      const i = Math.floor(this.pos); let s = 0; for (let k = 0; k < w; k++) s += b[i + k]; out.push(s / w); this.pos += this.r;
+    }
+    const cut = Math.floor(this.pos); this.buf = b.slice(cut); this.pos -= cut; return Float32Array.from(out);
+  }
+}
+const vad = { floor: -60, n: 0, run: 0, inSp: false, sil: 0, utt: [], pre: [], tLast: 0, pend: new Float32Array(0) };
+function resetVad() { vad.run = 0; vad.inSp = false; vad.sil = 0; vad.utt = []; vad.pre = []; }
+function onSamples(x16) {
+  const b = new Float32Array(vad.pend.length + x16.length); b.set(vad.pend); b.set(x16, vad.pend.length);
+  let i = 0;
+  for (; i + FRAME <= b.length; i += FRAME) onFrame(b.subarray(i, i + FRAME).slice(0), performance.now());
+  vad.pend = b.slice(i);
+}
+function onFrame(f, now) {
+  let e = 0; for (let k = 0; k < f.length; k++) e += f[k] * f[k];
+  const db = 10 * Math.log10(e / f.length + 1e-10);
+  $("#meter i").style.width = Math.max(0, Math.min(100, (db + 70) * 1.6)) + "%";
+  if (st.state !== "listening" && st.state !== "ptt") return;            // половинный дуплекс: пока Аружан говорит — не слушаем
+  if (st.state === "ptt") { vad.utt.push(f); return; }
+  vad.n++;
+  if (!vad.inSp) {                                                    // уровень шума: быстро вниз, медленно вверх
+    if (vad.n === 1) vad.floor = db;
+    else if (db < vad.floor) vad.floor = vad.floor * 0.8 + db * 0.2;
+    else if (db < vad.floor + 6) vad.floor = vad.floor * 0.98 + db * 0.02;
+  }
+  const sp = db > Math.max(vad.floor + 10, -52);
+  const hang = +$("#hang").value;
+  if (!vad.inSp) {
+    vad.pre.push(f); if (vad.pre.length > 15) vad.pre.shift();         // 300 мс до начала речи
+    vad.run = sp ? vad.run + 1 : 0;
+    if (vad.run >= 3) { vad.inSp = true; vad.utt = vad.pre.slice(); vad.pre = []; vad.sil = 0; vad.tLast = now; setStatus("слушаю…"); }
+    return;
+  }
+  vad.utt.push(f);
+  if (sp) { vad.sil = 0; vad.tLast = now; } else vad.sil += 20;
+  const dur = vad.utt.length * 0.02;
+  if (vad.sil >= hang || dur > 15) {
+    const keep = vad.utt.length - Math.max(0, Math.floor((vad.sil - 200) / 20));  // хвост тишины > 200 мс не шлём
+    const pcm = cat(vad.utt.slice(0, Math.max(1, keep)));
+    const tEnd = vad.tLast, tDecide = now; resetVad();
+    if (dur - vad.sil / 1000 < 0.25) return;                            // щелчок/шум — не фраза
+    turn(pcm, { tEnd, tDecide });
+  }
+}
+const cat = fs => { const n = fs.reduce((a, f) => a + f.length, 0); const o = new Float32Array(n); let p = 0; for (const f of fs) { o.set(f, p); p += f.length; } return o; };
+const toI16 = x => { const o = new Int16Array(x.length); for (let i = 0; i < x.length; i++) o[i] = Math.max(-32768, Math.min(32767, Math.round(x[i] * 32767))); return o; };
+
+// ---------------------------------------------------------------- проигрывание потока
+class Player {
+  constructor(ctx, sr, pre) { Object.assign(this, { ctx, sr, pre: pre / 1000, next: 0, started: false, left: null, pend: [], pendDur: 0, under: 0, gapMs: 0, tFirst: null, tStart: null, srcs: [], dur: 0 }); }
+  push(u8) {
+    if (this.tFirst === null) this.tFirst = performance.now();
+    let b = u8;
+    if (this.left) { b = new Uint8Array(this.left.length + u8.length); b.set(this.left); b.set(u8, this.left.length); this.left = null; }
+    if (b.length % 2) { this.left = b.slice(b.length - 1); b = b.slice(0, b.length - 1); }
+    if (!b.length) return;
+    const i16 = new Int16Array(b.buffer, b.byteOffset, b.length / 2); const f = new Float32Array(i16.length);
+    for (let i = 0; i < i16.length; i++) f[i] = i16[i] / 32768;
+    this.dur += f.length / this.sr;
+    if (!this.started) { this.pend.push(f); this.pendDur += f.length / this.sr; if (this.pendDur >= this.pre) this.start(); }
+    else this.sched(f);
+  }
+  start() {
+    this.started = true; const lead = 0.02; this.next = this.ctx.currentTime + lead;
+    this.tStart = performance.now() + lead * 1000 + ((this.ctx.outputLatency || this.ctx.baseLatency || 0) * 1000);
+    for (const f of this.pend) this.sched(f); this.pend = [];
+  }
+  sched(f) {
+    const now = this.ctx.currentTime;
+    if (this.next < now + 0.005) { this.under++; this.gapMs += (now + 0.02 - this.next) * 1000; this.next = now + 0.02; }
+    const b = this.ctx.createBuffer(1, f.length, this.sr); b.copyToChannel(f, 0);
+    const s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(this.next); this.srcs.push(s);
+    this.next += b.duration;
+  }
+  finish() { if (!this.started && this.pend.length) this.start(); const ms = Math.max(0, (this.next - this.ctx.currentTime) * 1000); return new Promise(r => setTimeout(r, ms + 120)); }
+  stop() { for (const s of this.srcs) { try { s.stop(); } catch (e) { /* уже */ } } }
+}
+
+// ---------------------------------------------------------------- реплика
+async function turn(pcm, t) {
+  const token = $("#token").value.trim();
+  if (!token) { setStatus("нет токена", "badv"); return; }
+  st.state = "sending"; setStatus(pcm ? "распознаю и думаю…" : "звоню…");
+  const q = new URLSearchParams({ voice: $("#voice").value, voice_ru: $("#voice_ru").value, steps: $("#steps").value, cfg: $("#cfg").value,
+    brain: $("#brain").value, brain_delay: $("#bdelay").value, lang: $("#lang").value, sr: "24000", call: st.callId });
+  if (!pcm) q.set("greet", "1");
+  st.abort = new AbortController();
+  const tSend = performance.now();
+  const row = { n: st.turns.length + 1, settings: Object.fromEntries(q), at: new Date().toISOString() };
+  try {
+    const r = await fetch("/call/turn?" + q, { method: "POST", signal: st.abort.signal,
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/octet-stream", "X-Sample-Rate": String(SR) },
+      body: pcm ? toI16(pcm).buffer : new Uint8Array(0) });
+    const tHead = performance.now();
+    if (r.status === 204) { row.error = "бот промолчал (204)"; log(row); back(); return; }
+    if (!r.ok) {
+      let e = ""; try { e = (await r.json()).error; } catch (x) { /* */ }
+      row.error = r.status + " " + e; log(row);
+      if (e === "line_busy") { localEnd(); setStatus("линия занята — идёт звонок клиента; подождите и позвоните снова", "mid"); return; }
+      if (e === "call_over") { localEnd(); setStatus("звонок закрыт сервером (тишина дольше CALL_IDLE_S) — позвоните снова", "mid"); return; }
+      setStatus(r.status === 422 ? "речи не слышно — говорите ближе" : "ошибка " + r.status + " " + e, "badv"); back(); return;
+    }
+    const H = k => r.headers.get(k);
+    Object.assign(row, { rid: H("X-Request-Id"), asr: decodeURIComponent(H("X-ASR-Text") || ""), reply: decodeURIComponent(H("X-Reply-Text") || ""),
+      recv_ms: +H("X-Recv-Ms"), asr_ms: +H("X-ASR-Ms"), brain_ms: +H("X-Brain-Ms"), tts_ms: +H("X-TTS-Head-Ms"), tts_ttfa_ms: +H("X-TTS-TTFA-Ms"),
+      server_ms: +H("X-Server-Ms"), steps: H("X-Steps"), cfg: H("X-CFG"), brain: H("X-Brain"), lang: H("X-Lang"), filler: H("X-Filler") === "1", end: H("X-End") === "1",
+      warm: H("X-Warm") === "1" });
+    row.net_ms = Math.round(tHead - tSend - row.server_ms);
+    if (t) { row.vad_ms = Math.round(t.tDecide - t.tEnd); row.encode_ms = Math.round(tSend - t.tDecide); }
+    st.state = "playing"; setStatus(row.filler ? "Аружан: (секунду…) бот думает" : "Аружан: " + row.reply);
+    const p = st.player = new Player(st.ctx, +H("X-Sample-Rate") || 24000, +$("#prebuf").value);
+    const rd = r.body.getReader();
+    for (;;) { const { value, done } = await rd.read(); if (done) break; p.push(value); }
+    await p.finish();
+    row.first_byte_ms = Math.round(p.tFirst - tHead);
+    row.buf_ms = Math.round(p.tStart - tHead);
+    row.total_ms = t ? Math.round(p.tStart - t.tEnd) : null;
+    row.greet_total_ms = t ? null : Math.round(p.tStart - tSend);
+    row.under = p.under; row.gap_ms = Math.round(p.gapMs); row.audio_s = +p.dur.toFixed(2);
+    try {
+      const s = await (await fetch("/call/stats?rid=" + row.rid, { headers: { Authorization: "Bearer " + token } })).json();
+      if (s.tts) Object.assign(row, { rtf: s.tts.rtf, prebuffer_need_ms: s.tts.prebuffer_ms, tts_audio_s: s.tts.audio_s, runaway: s.tts.runaway });
+      Object.assign(row, { reply: s._reply || row.reply, brain_ms: s.brain_ms ?? row.brain_ms, brain: s.brain || row.brain, end: !!s.end || row.end,
+        segments: s.segments, bot_err: s.bot_err, brain_total_ms: s.brain_total_ms, lang: s.lang || row.lang });
+    } catch (e) { /* без итогов */ }
+    log(row);
+    if (row.end) { hangup("bot_end"); setStatus("бот закончил разговор — трубка положена", "good"); return; }
+  } catch (e) {
+    if (e.name !== "AbortError") { setStatus("сбой: " + e.message, "badv"); row.error = e.message; log(row); }
+  }
+  back();
+}
+function back() { if (st.state !== "idle") { st.state = $("#mode").value === "ptt" ? "wait" : "listening"; resetVad(); setStatus($("#mode").value === "ptt" ? "держите кнопку и говорите" : "говорите…"); } ui(); }
+
+// ---------------------------------------------------------------- журнал
+const med = xs => { const v = xs.filter(x => typeof x === "number" && !isNaN(x)).sort((a, b) => a - b); return v.length ? v[Math.floor((v.length - 1) / 2)] : null; };
+const cls = ms => ms === null || ms === undefined ? "" : ms <= 1000 ? "good" : ms <= 1500 ? "mid" : "badv";
+function log(row) {
+  st.turns.push(row);
+  const tr = document.createElement("tr");
+  const c = (v, k) => { const td = document.createElement("td"); td.textContent = v === null || v === undefined || Number.isNaN(v) ? "—" : String(v); if (k) td.className = k; tr.appendChild(td); };
+  c(row.n); c(row.error ? "ошибка " + row.error : (row.asr || (row.settings.greet ? "(приветствие)" : "")), "t"); c(row.reply, "t");
+  c(row.total_ms ?? (row.greet_total_ms !== undefined && row.greet_total_ms !== null ? row.greet_total_ms + " (от запроса)" : null), cls(row.total_ms ?? row.greet_total_ms));
+  c(row.vad_ms); c(row.net_ms); c(row.asr_ms); c((row.brain_ms ?? "—") + (row.brain && row.brain !== "bot" ? " " + row.brain : "") + (row.filler ? " +«секунду»" : "") + (row.warm ? " +прогрев" : "") + (row.bot_err ? " ⚠" + row.bot_err : "")); c(row.tts_ms); c(row.buf_ms !== undefined ? row.buf_ms - (row.first_byte_ms || 0) : null);
+  c(row.rtf); c(row.under ? row.under + " (" + row.gap_ms + " мс)" : row.under); c(row.steps);
+  $("#log tbody").prepend(tr);
+  const ok = st.turns.filter(x => x.total_ms);
+  if (ok.length) {
+    $("#sum").innerHTML = `Реплик: ${ok.length}. Медиана «тишина → звук»: <b class="${cls(med(ok.map(x => x.total_ms)))}">${med(ok.map(x => x.total_ms))} мс</b>` +
+      ` (≤ 1 с — ${ok.filter(x => x.total_ms <= 1000).length} из ${ok.length}); из неё: конец фразы ${med(ok.map(x => x.vad_ms))}, сеть ${med(ok.map(x => x.net_ms))},` +
+      ` ASR ${med(ok.map(x => x.asr_ms))}, мозг ${med(ok.map(x => x.brain_ms))}, голос ${med(ok.map(x => x.tts_ms))}, буфер+вывод ${med(ok.map(x => x.buf_ms - (x.first_byte_ms || 0)))} мс; RTF ${med(ok.map(x => x.rtf))}; провалы в ${ok.filter(x => x.under).length} репликах.`;
+  }
+}
+
+// ---------------------------------------------------------------- замечания
+$("#noteSend").onclick = async () => {
+  const text = $("#note").value.trim(); if (!text) return;
+  const last = st.turns[st.turns.length - 1] || {};
+  const body = JSON.stringify({ text, turn: last.n ?? null, asr: last.asr || null, reply: last.reply || null, rid: last.rid || null, call: st.callId || null });
+  $("#noteSt").textContent = "отправляю…";
+  try {
+    const r = await fetch("/call/note", { method: "POST", headers: { Authorization: "Bearer " + $("#token").value.trim(), "Content-Type": "application/json" }, body });
+    if (!r.ok) throw new Error("код " + r.status);
+    const li = document.createElement("li"); li.textContent = (last.n ? "к реплике #" + last.n + ": " : "") + text; $("#notes").prepend(li);
+    $("#note").value = ""; $("#noteSt").textContent = "сохранено";
+  } catch (e) { $("#noteSt").textContent = "не ушло (" + e.message + ") — попробуй ещё раз"; }
+};
+
+// ---------------------------------------------------------------- звонок
+async function startCall() {
+  if (!window.isSecureContext || !navigator.mediaDevices) { setStatus("микрофон доступен только по https или с localhost", "badv"); return; }
+  const fresh = st.warmId && Date.now() - st.warmAt < 170000;           // тот же id, что у прогрева, — бот отдаст готовое приветствие
+  st.callId = fresh ? st.warmId : Math.random().toString(36).slice(2, 12).padEnd(8, "0"); st.warmId = ""; st.warmAt = 0;
+  try {
+    st.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+    await st.ctx.resume();
+    st.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  } catch (e) { setStatus("нет доступа к микрофону: " + e.message, "badv"); return; }
+  const src = st.ctx.createMediaStreamSource(st.mic); const down = new Down(st.ctx.sampleRate);
+  const sink = st.ctx.createGain(); sink.gain.value = 0; sink.connect(st.ctx.destination);
+  try {
+    const code = "class C extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('cap',C)";
+    await st.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: "application/javascript" })));
+    st.node = new AudioWorkletNode(st.ctx, "cap"); st.node.port.onmessage = e => onSamples(down.push(e.data));
+  } catch (e) {
+    st.node = st.ctx.createScriptProcessor(2048, 1, 1); st.node.onaudioprocess = e => onSamples(down.push(e.inputBuffer.getChannelData(0).slice(0)));
+  }
+  src.connect(st.node); st.node.connect(sink);
+  $("#dev").textContent = `устройство: ${st.ctx.sampleRate} Гц, задержка вывода ${Math.round(((st.ctx.outputLatency || st.ctx.baseLatency || 0)) * 1000)} мс; ` +
+    `захват: ${st.node instanceof AudioWorkletNode ? "AudioWorklet" : "ScriptProcessor"}`;
+  st.state = "sending"; ui(); resetVad(); vad.n = 0; vad.floor = -60;
+  await turn(null, null);                                             // Аружан берёт трубку первой
+}
+function sendEnd(reason, beacon) {
+  if (!st.callId) return;
+  const body = JSON.stringify({ token: $("#token").value.trim(), call: st.callId, reason }); st.callId = "";
+  if (beacon && navigator.sendBeacon && navigator.sendBeacon("/call/end", new Blob([body], { type: "text/plain" }))) return;
+  fetch("/call/end", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body }).catch(() => {});
+}
+function localEnd() { st.callId = ""; hangup(); }
+window.addEventListener("pagehide", () => {
+  if (st.state !== "idle") sendEnd("page_closed", true);
+  else if (st.warmId) { st.callId = st.warmId; st.warmId = ""; sendEnd("page_closed", true); }
+});
+function warm() {                                                       // прогрев при открытии и после каждого звонка
+  if ($("#warm").value !== "1" || st.state !== "idle" || $("#brain").value !== "bot") return;
+  st.warmId = Math.random().toString(36).slice(2, 12).padEnd(8, "0"); st.warmAt = Date.now();
+  fetch("/call/warm?" + new URLSearchParams({ call: st.warmId, lang: $("#lang").value }), { method: "POST",
+    headers: { Authorization: "Bearer " + $("#token").value.trim() } }).catch(() => {});
+}
+function hangup(reason) {
+  sendEnd(reason || "hangup", false);
+  if (st.abort) st.abort.abort(); if (st.player) st.player.stop();
+  if (st.mic) st.mic.getTracks().forEach(t => t.stop()); if (st.ctx) st.ctx.close();
+  Object.assign(st, { ctx: null, mic: null, node: null, state: "idle" }); setStatus("трубка положена"); ui();
+  setTimeout(warm, 1500);                                               // следующий звонок — снова с готовым приветствием
+}
+$("#call").onclick = startCall; $("#hangup").onclick = () => hangup("hangup");
+const ptt = $("#ptt"); let pttT = 0;
+ptt.addEventListener("pointerdown", e => { if (st.state !== "wait" && st.state !== "listening") return; e.preventDefault(); ptt.classList.add("on"); st.state = "ptt"; vad.utt = []; setStatus("говорите…"); });
+const pttUp = () => { if (st.state !== "ptt") return; ptt.classList.remove("on"); const now = performance.now(); const pcm = cat(vad.utt); vad.utt = []; if (pcm.length < SR * 0.25) { back(); return; } turn(pcm, { tEnd: now, tDecide: now }); };
+ptt.addEventListener("pointerup", pttUp); ptt.addEventListener("pointercancel", pttUp); ptt.addEventListener("pointerleave", pttUp);
+$("#dl").onclick = () => {
+  const blob = new Blob([JSON.stringify({ made: new Date().toISOString(), ua: navigator.userAgent, turns: st.turns }, null, 1)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "call-log-" + Date.now() + ".json"; a.click();
+};
+$("#done").onclick = async () => {
+  if (!confirm("Завершить сеанс? Звонок и ссылка клиента перестанут работать, сервер выключится.")) return;
+  if (st.state !== "idle") hangup("hangup");
+  const r = await fetch("/call/done", { method: "POST", headers: { Authorization: "Bearer " + $("#token").value.trim() } });
+  setStatus(r.ok ? "сеанс завершается, сервер выключится сам; лог можно скачать" : "не получилось: " + r.status, r.ok ? "good" : "badv");
+};
+fetch("/call/health").then(r => r.json()).then(h => {
+  const t = h.tts || {};
+  if ([...$("#brain").options].some(o => o.value === h.brain)) $("#brain").value = h.brain;
+  const vb = [...$("#voice_ru").options].find(o => o.value.startsWith("base:")); if (vb) vb.disabled = !h.tts_ru;
+  if (store.get("vl_call_voice_ru") === null && h.voice_ru) $("#voice_ru").value = h.voice_ru;
+  if (h.ready && !h.busy) warm();
+  $("#srv").textContent = (h.brain === "bot" ? (h.bot ? "· мозг: внешний бот" : "· мозг: внешний бот — НЕТ КЛЮЧА") : "· мозг: " + h.brain) + (h.lab_guest ? " · гость задан" : "");
+  $("#dev").textContent = `сервер: ASR ${h.asr}${h.ready ? "" : " (грузится)"}, мозг по умолчанию ${h.brain}${h.llm ? ", LLM есть" : ""}; голос: ${t.model || "?"}${t.ready ? "" : " (не готов)"}`;
+}).catch(() => {});
+ui();
+window.__call = st;                                                   // для автопроверки
+})();
+</script>
+</body>
+</html>

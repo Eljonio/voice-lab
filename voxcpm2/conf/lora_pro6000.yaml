@@ -1,0 +1,35 @@
+# VoxCPM2 LoRA — казахский язык и разговорная манера. RTX PRO 6000 (96 ГБ, Blackwell), почасовой облачный сервер.
+# Пути — на постоянном диске (VOICE_HOME), он переживает удаление сервера: чекпоинты не пропадут,
+# даже если ноут выключен и сторож удалил сервер. num_iters/max_steps подставляет remote_job.sh
+# из числа строк train.jsonl: steps = EPOCHS × строк / (batch_size × grad_accum_steps).
+pretrained_path: VOICE_HOME/weights/VoxCPM2/
+train_manifest: VOICE_HOME/MIX/train.jsonl
+val_manifest: VOICE_HOME/MIX/val.jsonl
+sample_rate: 16000
+out_sample_rate: 48000
+batch_size: 8             # 96 ГБ: в 4 раза больше официальных 2 (≈20 ГБ при 2). Если OOM — 4 и grad_accum 4
+grad_accum_steps: 2       # эффективный батч 16, как в официальном конфиге
+num_workers: 12           # 16 vCPU на флейворе
+preprocessing_num_workers: 12
+num_iters: STEPS
+max_steps: STEPS
+log_interval: 20
+valid_interval: 500       # каждые 500 шагов: val-лосс + пробы звука в TensorBoard
+save_interval: 500        # чекпоинт LoRA каждые 500 шагов (выбираем лучший на слух, качество «скачет»)
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 200
+max_batch_tokens: 16384   # только фильтр длинных фраз: max_len = 16384 / 8 = 2048 токенов ≈ 5 мин, не режет ничего
+max_grad_norm: 1.0
+save_path: VOICE_HOME/runs/RUN
+tensorboard: VOICE_HOME/runs/RUN/tb
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+lora:
+  enable_lm: true
+  enable_dit: true
+  enable_proj: false
+  r: 64                   # докум. VoxCPM: 32 для голоса, 64 для стиля/языка
+  alpha: 64
+  dropout: 0.0

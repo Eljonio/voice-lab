@@ -1,0 +1,39 @@
+# v4 (черновик 11.10, не запускался): продолжение v3 — та же расширенная LoRA (r=128, α=128; внимание + MLP + проекции LM↔DiT),
+# старт с весов v3 step_0006067: в RUNDIR/latest/ кладётся ТОЛЬКО lora_weights.safetensors (без optimizer/scheduler/training_state) →
+# load_checkpoint() тренера грузит веса и начинает с шага 0 с новым расписанием (train_voxcpm_finetune.py, load_checkpoint).
+# ⚠ load_state_dict(strict=False) молча пропускает несовпавшие ключи → перед стартом проверка: все ключи файла есть в модели.
+# lr 5e-5 (половина v3), warmup 200, cosine на 1 эпоху mix-v4 (≈ 85–98 тыс. строк / 16 ≈ 5,3–6,1 тыс. шагов), снимок и val каждые 1 000.
+# Выбор снимка — phrases_v2 × 2 сида (GigaAM: провалы → kk CER → короткие) + слепое v3↔v4 ушами; val-лосс не решает.
+pretrained_path: VOICE_HOME/weights/VoxCPM2/
+train_manifest: VOICE_HOME/MIX/train.jsonl
+val_manifest: VOICE_HOME/MIX/val.jsonl
+sample_rate: 16000
+out_sample_rate: 48000
+batch_size: 8
+grad_accum_steps: 2
+num_workers: 12
+preprocessing_num_workers: 12
+num_iters: STEPS
+max_steps: STEPS
+log_interval: 20
+valid_interval: 1000
+save_interval: 1000
+learning_rate: 0.00005
+weight_decay: 0.01
+warmup_steps: 200
+max_batch_tokens: 16384
+max_grad_norm: 1.0
+save_path: RUNDIR
+tensorboard: RUNDIR/tb
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+lora:
+  enable_lm: true
+  enable_dit: true
+  enable_proj: true
+  r: 128
+  alpha: 128
+  dropout: 0.0
+  target_modules_lm: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  target_modules_dit: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]

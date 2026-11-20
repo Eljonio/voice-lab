@@ -1,0 +1,29 @@
+# ПРОБА C (09.10): ПОЛНОЕ дообучение, lr 1e-5 (официальный voxcpm_finetune_all.yaml OpenBMB), warmup 300,
+# эфф. батч 16 = 4×4 (09.10: LoRA на батче 8 уже занимает 95 из 96 ГБ, полному +27 ГБ — 8×2 не влезет; lr не трогать), 2 000 шагов. Чекпоинт на шаге 1 000 → STOP_AT_STEP=1000 → продолжение с latest/
+# (проверка возобновления, ≈ 5 мин) → 2 000. Чекпоинт полного = model.safetensors fp32 (~9,2 ГБ) + optimizer.pth (~18 ГБ) + копия в
+# latest/ → пишем на ЗАГРУЗОЧНЫЙ диск (RUNDIR, 200 ГБ), на постоянный диск после пробы — только веса финала (если влезают).
+# НЕ поднимать lr при большем батче; НЕ трогать sample_rate (энкодер AudioVAE 16 кГц; 48000 = мусор).
+pretrained_path: VOICE_HOME/weights/VoxCPM2/
+train_manifest: VOICE_HOME/MIX/train.jsonl
+val_manifest: VOICE_HOME/MIX/val.jsonl
+sample_rate: 16000
+out_sample_rate: 48000
+batch_size: 4
+grad_accum_steps: 4
+num_workers: 12
+preprocessing_num_workers: 12
+num_iters: STEPS
+max_steps: STEPS
+log_interval: 20
+valid_interval: 1000
+save_interval: 1000
+learning_rate: 0.00001
+weight_decay: 0.01
+warmup_steps: 300
+max_batch_tokens: 16384
+max_grad_norm: 1.0
+save_path: RUNDIR
+tensorboard: RUNDIR/tb
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0

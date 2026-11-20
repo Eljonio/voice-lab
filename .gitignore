@@ -1,0 +1,66 @@
+# secrets
+.env
+*.env
+!.env.example
+*_token
+*_secret
+*_key
+cf_tunnel.env
+*.key
+*.pem
+
+# python / venvs
+__pycache__/
+*.pyc
+.venv*/
+venv*/
+
+# audio — never commit (rights of speakers, size)
+*.wav
+*.flac
+*.mp3
+*.m4a
+*.ogg
+*.opus
+*.aac
+*.webm
+*.mp4
+
+# model weights, checkpoints, caches
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.onnx
+*.npy
+*.npz
+models/
+weights/
+voxcpm2/repo/
+voxcpm2/weights/
+voxcpm2/runs/
+runs/
+merged/
+corpora/
+
+# data, manifests with transcripts, outputs
+data/
+work/
+clean/
+raw/
+voices/
+listen/
+eval/results/
+eval/*.wav
+*.jsonl
+*.asr.csv
+manifest*.csv
+clips.csv
+testdata/music/*
+!testdata/music/LICENSES.csv
+
+# logs
+logs/
+*.log
+*.out
